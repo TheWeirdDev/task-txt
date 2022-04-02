@@ -1,0 +1,6 @@
+[X] - Test 1 Done
+[~] -  Test 2 Almost
+sdsd
+[ ]  - Test 3 Not done
+[?] - Test 4 Unknown
+[E] - sdsd
