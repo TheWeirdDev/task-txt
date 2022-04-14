@@ -1,20 +1,22 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::fs::File;
+use std::io::{self, BufRead};
+use std::path::Path;
 
-use colored::Color::{self, *};
-use colored::Colorize;
+use tui::style::Color;
 
-const ND_PREFIX: &'static str = "[ ]";
-const DD_PREFIX: &'static str = "[X]";
-const AD_PREFIX: &'static str = "[~]";
-const NH_PREFIX: &'static str = "[?]";
+const ND_PREFIX: &str = "[ ]";
+const DD_PREFIX: &str = "[X]";
+const AD_PREFIX: &str = "[~]";
+const NH_PREFIX: &str = "[?]";
 
 #[derive(Debug, Copy, PartialEq, Eq, Hash, Clone)]
 pub enum TaskKind {
     NotDone,
     Done,
     AlmostDone,
-    NeedsHelp,
+    Unsure,
 }
 
 impl TaskKind {
@@ -23,16 +25,16 @@ impl TaskKind {
             TaskKind::NotDone => ND_PREFIX,
             TaskKind::Done => DD_PREFIX,
             TaskKind::AlmostDone => AD_PREFIX,
-            TaskKind::NeedsHelp => NH_PREFIX,
+            TaskKind::Unsure => NH_PREFIX,
         }
     }
 
     pub fn to_color(&self) -> Color {
         match self {
-            TaskKind::NotDone => Red,
-            TaskKind::Done => Green,
-            TaskKind::AlmostDone => Yellow,
-            TaskKind::NeedsHelp => Blue,
+            TaskKind::NotDone => Color::Red,
+            TaskKind::Done => Color::Green,
+            TaskKind::AlmostDone => Color::Yellow,
+            TaskKind::Unsure => Color::Blue,
         }
     }
 
@@ -41,12 +43,13 @@ impl TaskKind {
             ND_PREFIX => Some(TaskKind::NotDone),
             DD_PREFIX => Some(TaskKind::Done),
             AD_PREFIX => Some(TaskKind::AlmostDone),
-            NH_PREFIX => Some(TaskKind::NeedsHelp),
-            _ => None
+            NH_PREFIX => Some(TaskKind::Unsure),
+            _ => None,
         }
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Task {
     pub text: String,
     pub kind: TaskKind,
@@ -54,14 +57,34 @@ pub struct Task {
 
 impl Display for Task {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            format!("{} - {}", self.kind.to_str(), self.text).color(self.kind.to_color())
-        )
+        write!(f, "{} - {}", self.kind.to_str(), self.text)
     }
 }
 
+pub fn read_tasks() -> Result<Vec<Task>, std::io::Error> {
+    let lines = read_lines("tasks.txt")?;
+    let tasks: Vec<Task> = lines
+        .filter_map(|l| {
+            let line = l.ok()?;
+            let (kind, text) = line.split_once(" - ")?;
+            Some(Task {
+                text: text.trim().to_string(),
+                kind: TaskKind::try_from(kind.trim())?,
+            })
+        })
+        .collect();
+    Ok(tasks)
+}
+
+// The output is wrapped in a Result to allow matching on errors
+// Returns an Iterator to the Reader of the lines of the file.
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+where
+    P: AsRef<Path>,
+{
+    let file = File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
+}
 
 // TODO: write tests for this
 #[cfg(test)]
@@ -73,7 +96,7 @@ mod tests {
         assert_eq!(TaskKind::try_from("[ ]"), Some(TaskKind::NotDone));
         assert_eq!(TaskKind::try_from("[X]"), Some(TaskKind::Done));
         assert_eq!(TaskKind::try_from("[~]"), Some(TaskKind::AlmostDone));
-        assert_eq!(TaskKind::try_from("[?]"), Some(TaskKind::NeedsHelp));
+        assert_eq!(TaskKind::try_from("[?]"), Some(TaskKind::Unsure));
         assert_eq!(TaskKind::try_from(" [?] "), None);
         assert_eq!(TaskKind::try_from("[A]"), None);
         assert_eq!(TaskKind::try_from("Test"), None);

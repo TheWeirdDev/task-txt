@@ -4,3 +4,8 @@ sdsd
 [ ]  - Test 3 Not done
 [?] - Test 4 Unknown
 [E] - sdsd
+[X] - Another done
+[ ] - Nope
+[?] - What?
+[~] - Whatever
+
